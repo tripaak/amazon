@@ -43,33 +43,60 @@ def get_order_deails(driver,url,order):
     return order
 
 
-    
-
-
 def run_user(driver, username, password):
     driver.get('https://www.amazon.com')
     driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'nav-tools'))).click()
-    driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id','ap_email'))).send_keys(username)
-    driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id','continue'))).click()
-    driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id','ap_password'))).send_keys(password)
-    driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id','signInSubmit'))).click()
-    driver.implicitly_wait(2)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id','nav-orders'))).click()
+    time.sleep(5)
+
+    if 'Hello, sign in' not in driver.page_source:
+        driver.get("https://www.amazon.com/gp/css/homepage.html/ref=nav_bb_ya")
+
+
+    try:
+        login_check = WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element(By.CSS_SELECTOR, 'div.nav-line-1-container>span.nav-line-1.nav-progressive-content'))).text
+    except:
+        login_check = "None"
+
+    if login_check == 'Hello, sign in':
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'nav-tools'))).click()
+        time.sleep(1)
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'ap_email'))).send_keys(username)
+        time.sleep(1)
+        print('Username Entered')
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'continue'))).click()
+        time.sleep(1)
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'ap_password'))).send_keys(password)
+        print('Password Entered')
+        time.sleep(1)
+        print("login Clicked")
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'signInSubmit'))).click()
+        try:
+            submit_code = WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'auth-mfa-otpcode')))
+        except:
+            submit_code = None
+        if submit_code:
+            print("in MFA code block")
+            otp = input("Enter the code for 2FA: ")
+            time.sleep(180)
+            submit_code.send_keys(otp)
+            WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'auth-signin-button'))).click()
+
+    time.sleep(1)
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(driver.find_element('id', 'nav-orders'))).click()
     orders = []
 
     while True:
+        items = driver.find_elements(By.CSS_SELECTOR, 'div.order-card.js-order-card')
+        if len(items) < 1:
+            print("No orders to scrap")
+            return None
         for item in driver.find_elements(By.CSS_SELECTOR, 'div.order-card.js-order-card'):
             order = {}
-            order['order_date']  = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span4>div.a-row>span.a-size-base.a-color-secondary').text
-            order['order_total']  = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span2>div.a-row>span.a-size-base.a-color-secondary').text
-            order['shipping_at']  = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span6.a-span-last>div.yohtmlc-recipient>div.a-row.a-size-base').text
-            order['order_id']     = item.find_element(By.CSS_SELECTOR,'div.a-box.a-color-offset-background.order-header div.a-fixed-right-grid-inner>div.a-text-right.a-fixed-right-grid-col.a-col-right>div.a-row.a-size-mini>div.yohtmlc-order-id').text.split(' ')[-1]
-            order['order_details_url']= item.find_element(By.CSS_SELECTOR,'div.yohtmlc-order-level-connections>a.a-link-normal').get_attribute('href')
+            order['order_date'] = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span4>div.a-row>span.a-size-base.a-color-secondary').text
+            order['order_total'] = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span2>div.a-row>span.a-size-base.a-color-secondary').text
+            order['shipping_at'] = item.find_element(By.CSS_SELECTOR,'div.a-column.a-span6.a-span-last>div.yohtmlc-recipient>div.a-row.a-size-base').text
+            order['order_id'] = item.find_element(By.CSS_SELECTOR,'div.a-box.a-color-offset-background.order-header div.a-fixed-right-grid-inner>div.a-text-right.a-fixed-right-grid-col.a-col-right>div.a-row.a-size-mini>div.yohtmlc-order-id').text.split(' ')[-1]
+            order['order_details_url'] = item.find_element(By.CSS_SELECTOR,'div.yohtmlc-order-level-connections>a.a-link-normal').get_attribute('href')
             driver.implicitly_wait(3)
             orders.append(order)
             
@@ -137,12 +164,15 @@ if __name__ == '__main__':
             next(users)
             for user in users:
                 orders = run_user(driver, user['username'], user['password'])
-                with open(f"{user['username']}.csv",'a',newline='') as csv_file:
-                    fieldnames = ['order_id','order_date','order_total','order_price','delivery_cost','tax','product_link_1','quantity_1','product_price_1','sku_1','product_link_2','quantity_2','product_price_2','sku_2','product_link_3','quantity_3','product_price_3','sku_3','product_link_4','quantity_4','product_price_4','sku_4','product_link_5','quantity_5','product_price_5','sku_5','product_link_6','quantity_6','product_price_6','sku_6','product_link_7','quantity_7','product_price_7','sku_7','product_link_8','quantity_8','product_price_8','sku_8','product_link_9','quantity_9','product_price_9','sku_9','product_link_10','quantity_10','product_price_10','sku_10','product_link_11','quantity_11','product_price_11','sku_11','product_link_12','quantity_12','product_price_12','sku_12']
-                    writer = csv.DictWriter(csv_file, fieldnames=fieldnames,extrasaction='ignore',delimiter=';')
-                    writer.writeheader()
-                    for order in orders:
-                        writer.writerow(order)
+                if orders is not None:
+                    with open(f"{user['username']}.csv",'a',newline='') as csv_file:
+                        fieldnames = ['order_id','order_date','order_total','order_price','delivery_cost','tax','product_link_1','quantity_1','product_price_1','sku_1','product_link_2','quantity_2','product_price_2','sku_2','product_link_3','quantity_3','product_price_3','sku_3','product_link_4','quantity_4','product_price_4','sku_4','product_link_5','quantity_5','product_price_5','sku_5','product_link_6','quantity_6','product_price_6','sku_6','product_link_7','quantity_7','product_price_7','sku_7','product_link_8','quantity_8','product_price_8','sku_8','product_link_9','quantity_9','product_price_9','sku_9','product_link_10','quantity_10','product_price_10','sku_10','product_link_11','quantity_11','product_price_11','sku_11','product_link_12','quantity_12','product_price_12','sku_12']
+                        writer = csv.DictWriter(csv_file, fieldnames=fieldnames,extrasaction='ignore',delimiter=';')
+                        writer.writeheader()
+                        for order in orders:
+                            writer.writerow(order)
+                else:
+                    print(f"No orders for users {user['username']}")
     except:
         driver.close()
         driver.quit()
